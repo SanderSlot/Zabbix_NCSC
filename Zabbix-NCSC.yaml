@@ -7,11 +7,11 @@ zabbix_export:
     - uuid: 506b8f3ff39740418727d8f731a328ce
       template: 'NCSC advisories'
       name: 'NCSC advisories'
-      groups:
-        - name: Zabbix-NCSC
       vendor:
         name: SanderSlot
         version: 7.0-0
+      groups:
+        - name: Zabbix-NCSC
       items:
         - uuid: fafdf6e33135459689f8a97979cc7de3
           name: 'NCSC advisories'
@@ -42,6 +42,17 @@ zabbix_export:
           name: NCSC-Items
           type: DEPENDENT
           key: CVE_Items
+          filter:
+            evaltype: OR
+            conditions:
+              - macro: '{#CVE_TITLE}'
+                value: '\[[H]\/[H]\]'
+              - macro: '{#CVE_TITLE}'
+                value: '\[[H]\/[M]\]'
+              - macro: '{#CVE_TITLE}'
+                value: '\[[M]\/[H]\]'
+              - macro: '{#CVE_TITLE}'
+                value: '\[[M]\/[M]\]'
           item_prototypes:
             - uuid: 6380790e26704dd5934b164c1fb88465
               name: 'CVE: {#CVE_TITLE}'
