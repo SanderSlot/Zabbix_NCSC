@@ -1,0 +1,99 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 8c358fe377d44a6093cbed9827d861ba
+      name: Zabbix-NCSC
+  templates:
+    - uuid: 506b8f3ff39740418727d8f731a328ce
+      template: 'NCSC advisories'
+      name: 'NCSC advisories'
+      groups:
+        - name: Zabbix-NCSC
+      vendor:
+        name: SanderSlot
+        version: 7.0-0
+      items:
+        - uuid: fafdf6e33135459689f8a97979cc7de3
+          name: 'NCSC advisories'
+          type: HTTP_AGENT
+          key: CVE_advisories
+          delay: 30m
+          history: '0'
+          value_type: TEXT
+          preprocessing:
+            - type: XMLPATH
+              parameters:
+                - /rss/channel
+            - type: XML_TO_JSON
+            - type: JSONPATH
+              parameters:
+                - $.channel.item
+            - type: REGEX
+              parameters:
+                - '^\[(.*)\]$'
+                - \1
+            - type: REGEX
+              parameters:
+                - '^(.*)'
+                - '[\1]'
+          url: 'https://advisories.ncsc.nl/rss/advisories'
+      discovery_rules:
+        - uuid: 069f1d8e76384462b487283bd089fe04
+          name: NCSC-Items
+          type: DEPENDENT
+          key: CVE_Items
+          item_prototypes:
+            - uuid: 6380790e26704dd5934b164c1fb88465
+              name: 'CVE: {#CVE_TITLE}'
+              type: DEPENDENT
+              key: 'score[{#CVE_GUID}]'
+              value_type: TEXT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.[?(@.title == "{#CVE_TITLE}")]'
+                - type: JSONPATH
+                  parameters:
+                    - '$[0].title'
+                - type: REGEX
+                  parameters:
+                    - '\[([A-Z])/([A-Z])\]'
+                    - \1-\2
+              master_item:
+                key: CVE_advisories
+              trigger_prototypes:
+                - uuid: 0a91217c33ad45d0b0eb52be1e93fc80
+                  expression: 'count(/NCSC advisories/score[{#CVE_GUID}],1d)=1 and last(/NCSC advisories/score[{#CVE_GUID}])="H-H"'
+                  name: 'NEW CVE: {#CVE_TITLE}'
+                  opdata: 'severity: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                - uuid: 32a066df550647708e1440ed85713cc8
+                  expression: 'count(/NCSC advisories/score[{#CVE_GUID}],1d)=1 and last(/NCSC advisories/score[{#CVE_GUID}])="H-H"'
+                  name: 'NEW CVE H-H: {#CVE_TITLE}'
+                  opdata: 'severity: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+          master_item:
+            key: CVE_advisories
+          lld_macro_paths:
+            - lld_macro: '{#CVE_GUID}'
+              path: '$.guid["#text"]'
+            - lld_macro: '{#CVE_LINK}'
+              path: $.link
+            - lld_macro: '{#CVE_TITLE}'
+              path: $.title
+      httptests:
+        - uuid: caf38e7dc07c47f59d96afe950df583b
+          name: 'Check NCSC website'
+          steps:
+            - name: ncsc
+              url: 'https://advisories.ncsc.nl/rss/advisories'
+              follow_redirects: 'NO'
+              status_codes: '200'
+          tags:
+            - tag: NCSC
+  triggers:
+    - uuid: bac32eb8805f49a39ca2ca30e9b1be4a
+      expression: 'last(/NCSC advisories/web.test.rspcode[Check NCSC website,ncsc])<>200'
+      name: 'Problem with NCSC website'
+      priority: WARNING
+      description: 'kan geen krijgen van de NCSC website'
